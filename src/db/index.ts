@@ -15,6 +15,7 @@ import {
     ParseJSONResultsPlugin, 
 } from 'kysely'
 import { DB } from 'kysely-codegen'
+import { Log } from '@/lib/logger';
 
 export interface Connection {
     open(): void
@@ -72,7 +73,7 @@ export class Database implements Connection, Migrator {
     }
 
     async close(): Promise<void> {
-        console.log('Database connection destroyed...');
+        Log.info('Database connection destroyed...')
         if (Database.db) await Database.db.destroy()
     }
 
@@ -93,12 +94,12 @@ export class Database implements Connection, Migrator {
 
         const { error, results } = await callback(migrator)
         results?.forEach((it) => {
-            if (it.status === 'Success') console.log(`${message} "${it.migrationName}" was executed successfully`)
-            if (it.status === 'Error') console.error(`Failed to execute ${message.toLowerCase()} "${it.migrationName}"`)
+            if (it.status === 'Success') Log.info(`${message} "${it.migrationName}" was executed successfully`)
+            if (it.status === 'Error') Log.error(`Failed to execute ${message.toLowerCase()} "${it.migrationName}"`)
         })
         
         if (error) {
-            console.error(`Failed to ${message.toLowerCase()}:`, error)
+            Log.error(`Failed to ${message.toLowerCase()}:`, error)
             process.exit(1)
         }
 

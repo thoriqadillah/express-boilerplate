@@ -7,6 +7,7 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import { env } from "@/lib/env";
 import Bull, { BackoffOptions, Job } from 'bull'
+import { Log } from "@/lib/logger";
 
 export class NotifierService implements Service, ServiceInitter, ServiceCloser {
 
@@ -27,13 +28,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
 
     async init(): Promise<void> {
         // for testing (dev only)
-        this.event.subscribe('notification', payload => this.queue.add(payload, {
-            priority: payload?.priority,
-            backoff: <BackoffOptions>{
-                type: 'fixed',
-                delay: 1000
-            }
-        }))
+        this.event.subscribe('notification', this.enqueue)
 
         for (const failed of await this.queue.getFailed())  {
             await this.notify(failed.data)
@@ -47,9 +42,19 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
         })
     }
 
+    enqueue = (payload?: Payload) => {
+        this.queue.add(payload, {
+            priority: payload?.priority,
+            backoff: <BackoffOptions>{
+                type: 'fixed',
+                delay: 1000
+            }
+        })
+    }
+
     close(): void {
         this.queue.close()
-        console.log('Queue closed...');
+        Log.info('Queue closed...');
     }
 
     // for testing (dev only)
@@ -73,9 +78,9 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
         }
 
         const payload = JSON.parse(body.Message) as Payload
-        this.notify(payload)
+        this.enqueue(payload)
 
-        res.sendStatus(200)
+        res.Ok()
     }
 
     createRoutes(): void {

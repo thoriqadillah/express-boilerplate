@@ -10,9 +10,13 @@ import { Express } from "express";
 import { Memstore } from "@/db/memstore";
 import { Connection, Database } from "@/db";
 import { ExpressService, services } from "@/app/module";
-import { IncomingMessage, Server, ServerResponse } from "http";
+import { Server } from "http";
 import helmet from 'helmet'
-import { Typeable } from '@/plugin/typeable';
+import { typeable } from './middleware/typeable';
+import { Log } from '@/lib/logger';
+import ms from 'ms';
+import moment from 'moment';
+import color from 'colors'
 
 export interface Service {
     createRoutes(): void
@@ -39,7 +43,7 @@ export interface Plugin {
 }
 
 export interface App {
-    server: Server<typeof IncomingMessage, typeof ServerResponse>
+    server: Server
     services: Service[]
     app: Express
 
@@ -55,10 +59,9 @@ export interface AppOption {
     port?: number
 }
 
-
 export class Application implements App {
 
-    server: Server<typeof IncomingMessage, typeof ServerResponse>
+    server: Server
     services: Service[] = []
 
     private BASE_URL = env.get('BASE_URL').toString('http://localhost:3000')
@@ -79,18 +82,18 @@ export class Application implements App {
             ...option
         }
 
+        logger.token('time', () => `[${moment().format('HH:mm:ss')}]`)
+
         // default middleware
         app.disable('x-powered-by')
         app.use(
-            // rateLimit({
-            //     windowMs: 60 * 1000, // 1 minute,
-            //     limit: 60,
-            // }),
+            rateLimit({ windowMs: ms('1m'), limit: 60 }),
+            typeable, 
             helmet(),
             express.json(),
             bodyParser.urlencoded({ extended: true }),
             cookieParser(),
-            logger(':method \t :url \t :status \t :response-time ms'),
+            logger(`\[${color.green('LOG')}\] :time ${color.green(':method')} :url - ${color.yellow(':response-time ms')}`),
             cors({ 
                 origin: env.get('CORS_ALLOWED_ORIGIN').toString('*'),
                 credentials: true,
@@ -100,14 +103,13 @@ export class Application implements App {
 
         this.server = this.app.listen(this.option.port, () => {
             const BASE_URL = this.changePort(this.option.port!)
-            console.log(`Server ${this.option.name} is running at ${BASE_URL}`)
+            Log.info(`Server ${this.option.name} is running at`, BASE_URL)
         })
     }
 
-    changePort(port: number): string {
+    private changePort(port: number): string {
         let baseUrl = this.BASE_URL
         const splitted = this.BASE_URL.split(':')
-        
         if (splitted.length > 2) {
             splitted[2] = String(port)
             baseUrl = splitted.join(':')
@@ -121,7 +123,7 @@ export class Application implements App {
         return this
     }
 
-    installPlugin() {
+    private installPlugin() {
         for (const plugin of this.plugins) {
             plugin.install(this, this.option)
         }
@@ -130,8 +132,6 @@ export class Application implements App {
     start() {
         if (this.option.useDb) this.db.open()
         if (this.option.useMemstore) this.memstore.open()
-
-        this.use(new Typeable())
         this.installPlugin()
 
         for (const service of this.option.services!) {
@@ -142,6 +142,13 @@ export class Application implements App {
 
             this.services.push(svc)
         }
+
+        this.app._router.stack
+            .filter(router => router.name === 'router' || router.route)
+            .flatMap(router => router.name === 'router' ? router.handle.stack : router)
+            .forEach(router => {
+                Log.info(`Registered route ${router.route.stack[0].method.toUpperCase()}`, router.route.path)
+            })
     }
 
     private _shutdown() {
@@ -149,7 +156,7 @@ export class Application implements App {
             if (canClose(service)) service.close()
         }
 
-        console.log('HTTP server closed...')
+        Log.info('HTTP server closed...')
         if (this.server) this.server.close()
 
         if (this.option.useDb) this.db.close()
@@ -163,7 +170,7 @@ export class Application implements App {
         const signals = ['SIGTERM', 'SIGINT', 'SIGQUIT']
         for (const signal of signals) {
             process.on(signal, (signal) => {
-                console.log(`\n${signal} signal caught. Terminating...`);
+                Log.warning(`${signal} signal caught. Terminating...`);
                 this._shutdown()
             })
         }
