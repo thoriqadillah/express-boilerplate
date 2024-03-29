@@ -1,4 +1,6 @@
-export function filetype(ext: string): string {
+export type FileType = 'image' | 'video' | 'document' | 'compressed' | 'audio' | 'other'
+
+export function filetype(ext: string): FileType {
     ext = ext.replace('.', '')
     const images = ['jpg', 'jpeg', 'png', 'gif', 'bpm', 'webp']
     const videos = ['mp4', 'avi', 'wmv', 'mov', 'mkv']

@@ -9,15 +9,14 @@ import { BrokerName, Priority, broker } from "@/lib/broker";
 import { ResetPasswordStore } from "./reset-password/reset-password.store";
 import ResetPasswordValidator, { type CreateResetPassword } from "./reset-password/reset-password.model";
 import { google } from 'googleapis'
-import fileUpload, { UploadedFile } from "express-fileupload";
 import { StorageName, storage } from "@/lib/storage";
 import axios from 'axios'
 import mime from 'mime-db'
-import { v4 } from "uuid";
 import bcrypt from 'bcrypt'
 import ms from 'ms'
-import { MB, filetype, parseSize } from "@/lib/filetype";
 import { SendEmail } from "@/lib/notifier";
+import { imageupload } from "@/app/middleware/file-upload";
+import path from "path";
 
 export class AccountService implements Service {
 
@@ -29,7 +28,6 @@ export class AccountService implements Service {
     private OAUTH_GOOGLE_ID = env.get('OAUTH_GOOGLE_ID').toString()
     private OAUTH_GOOGLE_SECRET = env.get('OAUTH_GOOGLE_SECRET').toString()
     private BASE_URL = env.get('BASE_URL').toString()
-    private FILE_MAX_SIZE = env.get('FILE_MAX_SIZE').toNumber(1 * MB)
     
     private store = new AccountStore()
     private resetPass = new ResetPasswordStore()
@@ -115,8 +113,8 @@ export class AccountService implements Service {
         const ext = mimetype ? mimetype[0] : ''
 
         const path = await this.storage.upload(img.data, { 
-            name: `${v4()}.${ext}`,
-            contentType,
+            ext,
+            mime: contentType,
         })
 
         await this.store.updateProfile(userId, { picture: path })
@@ -387,29 +385,15 @@ export class AccountService implements Service {
 
     changePicture = async (req: Request, res: Response) => {
         try {
-            if (!req.files) return res.BadRequest('No file provided')
-
-            for (const key in req.files) {
-                const file = req.files[key] as UploadedFile
-
-                const ext = mime[file.mimetype].extensions![0]
-                const type = filetype(ext)
-                if (type !== 'image') return res.status(400).send({
-                    code: 400,
-                    message: 'File is not an image',
-                    data: null
-                })
-
-                // will replace if current picture is exist
-                const path = await this.storage.upload(file.data, { 
-                    name: file.name,
-                    replaceFile: req.user!.picture ?? undefined
-                })
-
-                await this.store.updateProfile(req.user!.id, { picture: path })
-                return res.Ok()
-            }
+            if (!req.file) return res.BadRequest('No file provided')
+            const fileUrl = await this.storage.upload(req.file.stream, {
+                ext: path.extname(req.file.filename),
+                replaceFile: req.user?.picture ?? undefined
+            })
             
+            await this.store.updateProfile(req.user!.id, { picture: fileUrl })
+            res.Ok()
+
         } catch (error) {
             res.InternalError(`${error}`)
         }
@@ -441,15 +425,7 @@ export class AccountService implements Service {
         v1.put('/user/change-email', auth, validate(Validator.changeEmail), this.sendChangeEmail)
         v1.get('/user/change-email/callback', this.changeEmail)
         v1.put('/user', auth, validate(Validator.updateProfile), this.updateProfile)
-        v1.put('/user/picture', fileUpload({ 
-            preserveExtension: true,
-            limits: {
-                fileSize: this.FILE_MAX_SIZE
-            },
-            abortOnLimit: true,
-            limitHandler: (req, res) => res.BadRequest(`Maximum file size is ${parseSize(this.FILE_MAX_SIZE)}`),
-            responseOnLimit: `Maximum file size is ${parseSize(this.FILE_MAX_SIZE)}`
-         }), this.changePicture)
+        v1.put('/user/picture', imageupload.single('file'), this.changePicture)
         v1.delete('/user', auth, this.deactivate)
 
         this.app.use('/api/v1', v1)

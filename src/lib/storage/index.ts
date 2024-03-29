@@ -2,21 +2,26 @@ import { Readable } from "stream"
 import { S3Storage } from "./s3"
 
 export interface UploadOption {
-    name?: string
+    /**
+     * @field extension with .
+     */
+    ext?: string
+    /**
+     * @field if specified, then it will replace the file that has the name
+     */
     replaceFile?: string
-    contentType?: string
+    mime?: string
 }
 
 export interface File {
-    contentType?: string
+    mime?: string
     disposition?: string
-    contentLenght?: number
     name?: string
     data: Readable
 }
 
 export interface Storage {
-    upload(data: Buffer, option?: UploadOption): Promise<string>
+    upload(data: Readable, option?: UploadOption): Promise<string>
     serve(pathlike: string): Promise<File | undefined>
     remove(pathlike: string): Promise<void>
 }

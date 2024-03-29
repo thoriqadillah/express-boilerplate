@@ -144,9 +144,9 @@ export class Application implements App {
         }
 
         this.app._router.stack
-            .filter(router => router.name === 'router' || router.route)
-            .flatMap(router => router.name === 'router' ? router.handle.stack : router)
-            .forEach(router => {
+            .filter((router: any) => router.name === 'router' || router.route)
+            .flatMap((router: any) => router.name === 'router' ? router.handle.stack : router)
+            .forEach((router: any) => {
                 Log.info(`Registered route ${router.route.stack[0].method.toUpperCase()}`, router.route.path)
             })
     }

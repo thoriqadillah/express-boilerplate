@@ -30,10 +30,9 @@ export class S3Storage implements Storage {
         })
     }
 
-    async upload(data: Buffer, option?: UploadOption): Promise<string> {
-        // put the image according to user id, workspace id, or project id (if configured)
+    async upload(data: Readable, option?: UploadOption): Promise<string> {
         let name = ''
-        name = option?.replaceFile || (option?.name || v4())
+        name = option?.replaceFile || `${v4()}${option?.ext}`
         name = encodeURIComponent(name)
 
         await this.s3.putObject({
@@ -41,7 +40,7 @@ export class S3Storage implements Storage {
             Bucket: this.option.bucket,
             Key: name,
             ContentDisposition: "inline",
-            ContentType: option?.contentType,
+            ContentType: option?.mime,
         })
 
         return `${this.BASE_URL}/api/v1/file/${name}`
@@ -64,8 +63,7 @@ export class S3Storage implements Storage {
 
                 return {
                     data: reader,
-                    contentType: file.ContentType,
-                    contentLenght: file.ContentLength,
+                    mime: file.ContentType,
                     disposition: file.ContentDisposition,
                     name: path.basename(pathlike)
                 }

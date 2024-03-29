@@ -17,7 +17,7 @@ export class FileService implements Service {
         const file = await this.storage.serve(id)
         if (!file) return res.status(204).send()
 
-        if (file.contentType) res.setHeader('Content-Type', file.contentType)
+        if (file.mime) res.setHeader('Content-Type', file.mime)
         if (file.disposition) res.setHeader('Content-Disposition', `${file.disposition}; filename="${file.name}"`)
         
         file.data.pipe(res)
