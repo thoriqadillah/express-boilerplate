@@ -13,16 +13,17 @@ import { StorageName, storage } from "@/lib/storage";
 import axios from 'axios'
 import mime from 'mime-db'
 import bcrypt from 'bcrypt'
-import ms from 'ms'
 import { SendEmail } from "@/lib/notifier";
 import { imageupload } from "@/app/middleware/file-upload";
 import path from "path";
+import { Log } from "@/lib/logger";
+import fs from "fs";
 
 export class AccountService implements Service {
 
     private SECRET_KEY = env.get('JWT_SIGNING_KEY').toString('secret')
-    private TOKEN_EXP = env.get('JWT_EXPIRATION').toString('1h')
-    private REFRESH_TOKEN_EXP = env.get('JWT_REFRESH_TOKEN_EXPIRATION').toString('1d')
+    private TOKEN_EXP = env.get('JWT_EXPIRATION').toDuration('1h')
+    private REFRESH_TOKEN_EXP = env.get('JWT_REFRESH_TOKEN_EXPIRATION').toDuration('1d')
     private BROKER_DRIVER = env.get('BROKER_DRIVER').toString('event') as BrokerName
     private STORAGE_DRIVER = env.get('STORAGE_DRIVER').toString('s3') as StorageName
     private OAUTH_GOOGLE_ID = env.get('OAUTH_GOOGLE_ID').toString()
@@ -43,18 +44,13 @@ export class AccountService implements Service {
 
     constructor(private app: Express) {}
 
-    setExpiration(ms: number): Date {
-        const now = new Date().getTime()
-        return new Date(now + ms)
-    }
-
     generateToken(userId: string): { token: string, refreshToken: string } {
         const token = jwt.sign({ user: userId }, this.SECRET_KEY, {
-            expiresIn: this.TOKEN_EXP,
+            expiresIn: this.TOKEN_EXP.getTime(),
         })
 
         const refreshToken = jwt.sign({ user: userId }, this.SECRET_KEY, {
-            expiresIn: this.REFRESH_TOKEN_EXP
+            expiresIn: this.REFRESH_TOKEN_EXP.getTime()
         })
 
         return {
@@ -75,7 +71,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.setExpiration(ms(this.REFRESH_TOKEN_EXP))
+                    expires: this.REFRESH_TOKEN_EXP
                 })
                 .Created({ token })
             
@@ -96,7 +92,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.setExpiration(ms(this.REFRESH_TOKEN_EXP))
+                    expires: this.REFRESH_TOKEN_EXP
                 })
                 .Ok({ token })
 
@@ -147,7 +143,7 @@ export class AccountService implements Service {
                         httpOnly: true,
                         sameSite: req.secure ? 'none' : 'lax',
                         secure: req.secure,
-                        expires: this.setExpiration(ms(this.REFRESH_TOKEN_EXP))
+                        expires: this.REFRESH_TOKEN_EXP
                     })
                     .Ok({ token })
             }
@@ -158,7 +154,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.setExpiration(ms(this.REFRESH_TOKEN_EXP))
+                    expires: this.REFRESH_TOKEN_EXP
                 })
                 .Ok({ token: accessToken })
             
@@ -198,15 +194,17 @@ export class AccountService implements Service {
     }
 
     verify = async (req: Request, res: Response) => {
-        const { token, errorRedirect } = req.query
+        const token = req.Query('token').toString()
+        const errorRedirect = req.Query('errorRedirect').toString()
+
         try {
-            const decoded = jwt.verify(token as string, this.SECRET_KEY) as JwtPayload
+            const decoded = jwt.verify(token, this.SECRET_KEY) as JwtPayload
             
             await this.store.verifyEmail(decoded['user'])
             res.redirect(302, decoded['url'])
         } catch (error) {
-            res.redirect(302, errorRedirect as string)
-            console.error(`${error}`)
+            res.redirect(302, errorRedirect)
+            Log.error(`${error}`)
         }
     }
 
@@ -226,7 +224,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.setExpiration(ms(this.REFRESH_TOKEN_EXP))
+                    expires: this.REFRESH_TOKEN_EXP
                 })
                 .Ok({ token: newToken })
 
@@ -357,17 +355,18 @@ export class AccountService implements Service {
     }
 
     changeEmail = async (req: Request, res: Response) => {
-        const { token, errorUrl } = req.query
+        const token = req.Query('token').toString()
+        const errorUrl = req.Query('errorUrl').toString()
         
         try {
-            const { user, email, redirect } = jwt.verify(token as string, this.SECRET_KEY) as jwt.JwtPayload
+            const { user, email, redirect } = jwt.verify(token, this.SECRET_KEY) as jwt.JwtPayload
             
             await this.store.updateProfile(user, { email })
             res.redirect(302, redirect)
             
         } catch (error) {
-            res.redirect(302, errorUrl as string)
-            console.error(`${error}`);
+            res.redirect(302, errorUrl)
+            Log.error(`${error}`);
         }
     }
 
@@ -386,10 +385,13 @@ export class AccountService implements Service {
     changePicture = async (req: Request, res: Response) => {
         try {
             if (!req.file) return res.BadRequest('No file provided')
+            
             const fileUrl = await this.storage.upload(req.file.stream, {
                 ext: path.extname(req.file.filename),
                 replaceFile: req.user?.picture ?? undefined
             })
+
+            fs.unlink(req.file.path, err => Log.error(`${err}`))
             
             await this.store.updateProfile(req.user!.id, { picture: fileUrl })
             res.Ok()

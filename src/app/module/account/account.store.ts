@@ -1,10 +1,9 @@
 import { Login, Register, UpdateProfile } from "./account.model";
 import { Database } from "@/db";
-import { v4 as uuidv4 } from 'uuid';
+import uuid from 'uuid';
 import { User } from "./account.model";
 import bcrypt from 'bcrypt'
 import { Memstore } from "@/db/memstore";
-import { jest } from "@jest/globals";
 
 export interface CreateUser extends Omit<Register, 'password'> {
     password?: string
@@ -37,7 +36,7 @@ export class AccountStore implements Store {
         if (u.password) password = await bcrypt.hash(u.password, this.salt)
 
         return await this.db.insertInto('users').values({
-                id: uuidv4(),
+                id: uuid.v4(),
                 role_id: 2,
                 first_name: u.first_name,
                 last_name: u.last_name,

@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { Application } from "@/app";
-import { parseFlags } from "./lib/utils";
+import { parseFlags } from "./lib/parser";
 import { env } from "./lib/env";
 import { RTC } from "./plugin/rtc";
 

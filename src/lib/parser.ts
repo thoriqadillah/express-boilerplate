@@ -47,7 +47,7 @@ export function parse(value?: string): Parser {
 
     function toDuration(defaults?: string): Date {
         const toDate = (milisecond: string) => {
-          return moment().add(ms(milisecond)).toDate();
+          return moment().add(ms(milisecond)).toDate()
         };
     
         if (value) return toDate(value);

@@ -66,8 +66,12 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
     }
 
     sendEmail = async (data: SendEmail) => {
-        const { recipient, subject, template, ...payload } = data
-        await this.mailer.send([recipient], { subject, template, payload })
+        try {
+            const { recipient, subject, template, ...payload } = data
+            await this.mailer.send([recipient], { subject, template, payload })
+        } catch (error) {
+            Log.error(`${error}`)
+        }
     }
 
     subscribe = async (req: Request, res: Response) => {

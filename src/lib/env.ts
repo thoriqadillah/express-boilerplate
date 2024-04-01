@@ -1,4 +1,4 @@
-import { Parser, parse } from "./utils"
+import { Parser, parse } from "./parser"
 
 export interface Env {
     get(key: string): Parser
