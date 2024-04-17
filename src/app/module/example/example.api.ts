@@ -1,7 +1,8 @@
 import { Service } from "@/app";
-import express, { Express, Request, Response } from "express";
+import express, { Express, Request, RequestHandler, Response } from "express";
 import { validate } from "@/app/middleware/validator";
 import { example } from "./example.model";
+import { validateSchema } from "@/lib/validator";
 
 export class ExampleService implements Service {
 
@@ -17,7 +18,7 @@ export class ExampleService implements Service {
     // You can test this by creating a property for this class
     // And then console.log it in the regular method. See if it has any value other than `undefined`
 
-    hello = (req: Request, res: Response) => {
+    hello: RequestHandler = (req, res) => {
         res.send('hello world')
     }
 
