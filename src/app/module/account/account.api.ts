@@ -24,8 +24,8 @@ export class AccountService implements Service {
     private SECRET_KEY = env.get('JWT_SIGNING_KEY').toString('secret')
     private TOKEN_EXP = env.get('JWT_EXPIRATION').toDuration('1h')
     private REFRESH_TOKEN_EXP = env.get('JWT_REFRESH_TOKEN_EXPIRATION').toDuration('1d')
-    private BROKER_DRIVER = env.get('BROKER_DRIVER').toString('event') as BrokerName
-    private STORAGE_DRIVER = env.get('STORAGE_DRIVER').toString('s3') as StorageName
+    private BROKER_DRIVER = env.get('BROKER_DRIVER').toUnion<BrokerName>('event')
+    private STORAGE_DRIVER = env.get('STORAGE_DRIVER').toUnion<StorageName>('s3')
     private OAUTH_GOOGLE_ID = env.get('OAUTH_GOOGLE_ID').toString()
     private OAUTH_GOOGLE_SECRET = env.get('OAUTH_GOOGLE_SECRET').toString()
     private BASE_URL = env.get('BASE_URL').toString()

@@ -80,5 +80,4 @@ export class S3Storage implements Storage {
             Key: pathlike
         })
     }
-
 }

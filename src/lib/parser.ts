@@ -21,6 +21,7 @@ export interface Parser {
     toBoolean(defaults?: boolean): boolean
     toNumber(defaults?: number): number
     toDuration(defaults?: string): Date
+    toUnion<T = ''>(defaults?: T): T
 }
 
 export function parse(value?: string): Parser {
@@ -54,12 +55,20 @@ export function parse(value?: string): Parser {
         if (!value && defaults) return toDate(defaults);
     
         return new Date();
-      }
+    }
+
+    function toUnion<T = ''>(defaults?: T): T {
+        if (value) return value as T
+        if (!value && defaults) return defaults
+
+        return '' as T
+    }
 
     return {
         toString,
         toBoolean,
         toNumber,
         toDuration,
+        toUnion
     }
 }

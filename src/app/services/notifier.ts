@@ -6,23 +6,17 @@ import { ExpressService } from "@/app/module";
 import bodyParser from "body-parser";
 import axios from "axios";
 import { env } from "@/lib/env";
-import Bull, { BackoffOptions, Job } from 'bull'
 import { Log } from "@/lib/logger";
+import { MessageQueueName, queue } from "@/lib/queue";
 
 export class NotifierService implements Service, ServiceInitter, ServiceCloser {
 
-    private NOTIFIER_DRIVER = env.get('NOTIFIER_DRIVER').toString('ses') as NotifierName
+    private NOTIFIER_DRIVER = env.get('NOTIFIER_DRIVER').toUnion<NotifierName>('ses')
+    private QUEUE_DRIVER = env.get('QUEUE_DRIVER').toUnion<MessageQueueName>('bull')
 
     private event = broker.create('event')
     private mailer = notifier.create(this.NOTIFIER_DRIVER)
-    private queue = new Bull('notification', {
-        redis: {
-            host: env.get('REDIS_HOST').toString(),
-            username: env.get('REDIS_USERNAME').toString(),
-            password: env.get('REDIS_PASSWORD').toString(),
-            port: env.get('REDIS_PORT').toNumber()
-        }
-    })
+    private queue = queue.create(this.QUEUE_DRIVER, 'notification')
     
     constructor(private app: Express) {}
 
@@ -30,30 +24,18 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
         // for testing (dev only)
         this.event.subscribe('notification', this.enqueue)
 
-        for (const failed of await this.queue.getFailed())  {
-            await this.notify(failed.data)
-            failed.remove()
-        }
-
-        this.queue.process(async (job, done) => {
-            await this.notify(job.data)
-            job.remove()
-            done()
-        })
+        this.queue.work(this.notify)
+        if (this.queue.initable()) this.queue.init()
     }
 
     enqueue = (payload?: Payload) => {
-        this.queue.add(payload, {
+        this.queue.push<Payload<SendEmail>>(payload!, { 
             priority: payload?.priority,
-            backoff: <BackoffOptions>{
-                type: 'fixed',
-                delay: 1000
-            }
         })
     }
 
     close(): void {
-        this.queue.close()
+        if (this.queue.closable()) this.queue.close()
         Log.info('Queue closed...');
     }
 
@@ -61,7 +43,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
     notify = async (payload?: Payload) => {
         const { notifiers, data } = payload!
         if (notifiers) for (const notifier of notifiers) {
-            if (notifier === 'email' && data) await this.sendEmail(data)
+            if (notifier === 'email' && data) await this.sendEmail(data).catch(err => { throw new Error(`${err}`) })
         }
     }
 
@@ -71,6 +53,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
             await this.mailer.send([recipient], { subject, template, payload })
         } catch (error) {
             Log.error(`${error}`)
+            throw error
         }
     }
 

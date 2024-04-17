@@ -1,7 +1,16 @@
 import color from 'colors'
 import moment from "moment"
 
-const now = () => moment().format('HH:mm:ss')
+const now = () => moment().format('DD-MM-YYYY HH:mm:ss')
+
+export interface Logger {
+    warning(message?: any, ...params: any[]): void
+    log(message?: any, ...params: any[]): void
+    info(message?: any, ...params: any[]): void
+    error(message?: any, ...params: any[]): void
+    debug(message?: any, ...params: any[]): void
+}
+
 function warning(message?: any, ...params: any[]) {
     console.log(`[${color.yellow('WARNING')}] [${now()}]`, color.yellow(message), ...params) 
 }
@@ -19,10 +28,10 @@ function error(message?: any, ...params: any[]) {
 }
 
 function debug(message?: any, ...params: any[]) {
-    console.log(`['DEBUG'] [${now()}]`, message, ...params) 
+    console.log(`[DEBUG] [${now()}]`, message, ...params) 
 }
 
-export const Log = {
+export const Log: Logger = {
     info,
     warning,
     log,
