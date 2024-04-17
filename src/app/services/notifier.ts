@@ -35,8 +35,10 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
     }
 
     close(): void {
-        if (this.queue.closable()) this.queue.close()
-        Log.info('Queue closed...');
+        if (this.queue.closable()) {
+            this.queue.close()
+            Log.info('Queue closed...');
+        }
     }
 
     // for testing (dev only)
