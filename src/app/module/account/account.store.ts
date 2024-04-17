@@ -1,9 +1,8 @@
 import { Login, Register, UpdateProfile } from "./account.model";
-import { Database } from "@/db";
+import { KyselyDatabase, Redis } from "@/db";
 import uuid from 'uuid';
 import { User } from "./account.model";
 import bcrypt from 'bcrypt'
-import { Memstore } from "@/db/memstore";
 
 export interface CreateUser extends Omit<Register, 'password'> {
     password?: string
@@ -26,8 +25,8 @@ export interface Store {
 
 export class AccountStore implements Store {
 
-    private db = Database.instance()
-    private memstore = Memstore.instance()
+    private db = KyselyDatabase.instance()
+    private memstore = Redis.instance()
     private salt = 10
     private _1HOUR = 60 * 60
 

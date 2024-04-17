@@ -16,7 +16,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
 
     private event = broker.create('event')
     private mailer = notifier.create(this.NOTIFIER_DRIVER)
-    private queue = queue.create(this.QUEUE_DRIVER, 'notification')
+    private queue = queue.create(this.QUEUE_DRIVER, 'Notification')
     
     constructor(private app: Express) {}
 
@@ -35,10 +35,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
     }
 
     close(): void {
-        if (this.queue.closable()) {
-            this.queue.close()
-            Log.info('Queue closed...');
-        }
+        if (this.queue.closable()) this.queue.close()
     }
 
     // for testing (dev only)

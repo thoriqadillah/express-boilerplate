@@ -10,11 +10,11 @@ export abstract class MessageQueue {
     }
 
     initable(): this is MessageQueueInitter {
-        return false
+        return 'init' in this
     }
 
     closable(): this is MessageQueueCloser {
-        return false
+        return 'close' in this
     }
 
     abstract push<T = any>(data: T, option?: JobOption): void;

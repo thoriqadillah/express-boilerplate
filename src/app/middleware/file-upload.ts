@@ -3,7 +3,7 @@ import multer from "multer";
 import mime from 'mime-db'
 
 export const imageupload = multer({
-    dest: './lib/storage/uploads',
+    dest: './src/lib/storage/uploads',
     fileFilter: (req, file, callback) => {
         const exts = mime[file.mimetype].extensions
         if (exts) {

@@ -1,4 +1,4 @@
-import { Database } from "@/db"
+import { KyselyDatabase } from "@/db"
 import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 
@@ -10,7 +10,7 @@ export interface Store {
 
 export class ResetPasswordStore implements Store {
 
-    private db = Database.instance()
+    private db = KyselyDatabase.instance()
     private defaultSalt = 10
 
     async create(email: string): Promise<string> {

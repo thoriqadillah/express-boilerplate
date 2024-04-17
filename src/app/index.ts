@@ -7,8 +7,7 @@ import { rateLimit } from 'express-rate-limit'
 
 import { env } from "@/lib/env";
 import { Express } from "express";
-import { Memstore } from "@/db/memstore";
-import { Connection, Database } from "@/db";
+import { Connection, KyselyDatabase, Redis } from "@/db";
 import { ExpressService, services } from "@/app/module";
 import { Server } from "http";
 import helmet from 'helmet'
@@ -58,8 +57,8 @@ export class Application implements App<Express> {
 
     private BASE_URL = env.get('BASE_URL').toString('http://localhost:3000')
     private option: AppOption
-    private db: Connection = new Database()
-    private memstore: Connection = new Memstore()
+    private db: Connection = new KyselyDatabase()
+    private memstore: Connection = new Redis()
     private environment = env.get('NODE_ENV').toString('dev')
 
     private plugins: Plugin<Express>[] = []

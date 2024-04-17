@@ -2,16 +2,15 @@ import { JobOption, MessageQueueCloser, MessageQueueInitter, MessageQueueOption,
 import { Queue, Job, Worker } from 'bullmq'
 import { env } from "../env";
 import { MessageQueue } from "./mq";
+import { Log } from "../logger";
 
 export class BullMQ extends MessageQueue implements MessageQueueInitter, MessageQueueCloser {
 
   private queue: Queue
-  private job?: Job 
   private worker?: Worker
 
   constructor(name: string, option?: MessageQueueOption) {
     super(name, option)
-    this.name = name
 
     this.option = {
       concurrency: env.get('QUEUE_CONCURRENCY').toNumber(),
@@ -27,26 +26,23 @@ export class BullMQ extends MessageQueue implements MessageQueueInitter, Message
     this.queue = new Queue(this.name, { 
       connection: { ...this.option.redis }
     })
-  }
 
-  initable(): this is MessageQueueInitter {
-    return true
-  }
-
-  closable(): this is MessageQueueCloser {
-    return true
+    Log.info(`${name} queue opened...`)
   }
 
   async init(): Promise<void> {
-    await this.worker?.startStalledCheckTimer()
+    await this.worker!.startStalledCheckTimer()
   }
 
   async close(): Promise<void> {
-    await this.worker?.close()
+    await this.queue.close()
+    await this.worker!.close()
+
+    Log.info(`${this.name} queue closed. Wait for another 30s to check for stalled jobs...`)
   }
 
   async push<T>(data: T, option?: JobOption): Promise<void> {
-    this.job = await this.queue.add(this.name, data, {
+    await this.queue.add(this.name, data, {
       priority: option?.priority,
       removeOnComplete: true,
       attempts: 5,
