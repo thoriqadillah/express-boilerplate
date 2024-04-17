@@ -26,26 +26,18 @@ export interface ServiceInitter {
     init(): void
 }
 
-function canInit(service: any): service is ServiceInitter {
-    return 'init' in service
-}
-
 export interface ServiceCloser {
     close(): void
 }
 
-function canClose(service: any): service is ServiceCloser {
-    return 'close' in service
+export interface Plugin<T> {
+    install(app: App<T>, option: AppOption): void
 }
 
-export interface Plugin {
-    install(app: App, option: AppOption): void
-}
-
-export interface App {
+export interface App<T> {
     server: Server
     services: Service[]
-    app: Express
+    app: T
 
     start(): void
     shutdown(): void
@@ -59,7 +51,7 @@ export interface AppOption {
     port?: number
 }
 
-export class Application implements App {
+export class Application implements App<Express> {
 
     server: Server
     services: Service[] = []
@@ -70,7 +62,7 @@ export class Application implements App {
     private memstore: Connection = new Memstore()
     private environment = env.get('NODE_ENV').toString('dev')
 
-    private plugins: Plugin[] = []
+    private plugins: Plugin<Express>[] = []
 
     constructor(public app: Express, option?: AppOption) {
         this.option = {
@@ -118,7 +110,7 @@ export class Application implements App {
         return baseUrl
     }
 
-    use(plugin: Plugin): App {
+    use(plugin: Plugin<Express>): App<Express> {
         this.plugins.push(plugin)
         return this
     }
@@ -129,6 +121,10 @@ export class Application implements App {
         }
     }
 
+    private canInit(service: any): service is ServiceInitter {
+        return 'init' in service
+    }
+
     start() {
         if (this.option.useDb) this.db.open()
         if (this.option.useMemstore) this.memstore.open()
@@ -137,7 +133,7 @@ export class Application implements App {
         for (const service of this.option.services!) {
             const svc = service(this.app)
 
-            if (canInit(svc)) svc.init()
+            if (this.canInit(svc)) svc.init()
             svc.createRoutes()
 
             this.services.push(svc)
@@ -151,9 +147,13 @@ export class Application implements App {
             })
     }
 
+    private canClose(service: any): service is ServiceCloser {
+        return 'close' in service
+    }
+
     private _shutdown() {
         for (const service of this.services) {    
-            if (canClose(service)) service.close()
+            if (this.canClose(service)) service.close()
         }
 
         Log.info('HTTP server closed...')

@@ -2,8 +2,8 @@ import express, { Express, Request, Response } from "express";
 import { Service } from "@/app";
 import { auth, validate } from "@/app/middleware";
 import { AccountStore } from "./account.store";
-import Validator, { type Login, type UpdateProfile, type ChangePassword, type Register, type NewPassword, type ChangeEmail } from "./account.model";
-import jwt, { JwtPayload } from 'jsonwebtoken'
+import Validator, { type Login, type UpdateProfile, type ChangePassword, type Register, type NewPassword, type ChangeEmail, AuthToken } from "./account.model";
+import jwt from 'jsonwebtoken'
 import { env } from "@/lib/env";
 import { BrokerName, Priority, broker } from "@/lib/broker";
 import { ResetPasswordStore } from "./reset-password/reset-password.store";
@@ -18,6 +18,7 @@ import { imageupload } from "@/app/middleware/file-upload";
 import path from "path";
 import { Log } from "@/lib/logger";
 import fs from "fs";
+import { JwtToken } from "@/app/middleware/auth";
 
 export class AccountService implements Service {
 
@@ -44,7 +45,7 @@ export class AccountService implements Service {
 
     constructor(private app: Express) {}
 
-    generateToken(userId: string): { token: string, refreshToken: string } {
+    generateToken(userId: string): AuthToken {
         const token = jwt.sign({ user: userId }, this.SECRET_KEY, {
             expiresIn: this.TOKEN_EXP.getTime(),
         })
@@ -198,10 +199,10 @@ export class AccountService implements Service {
         const errorRedirect = req.Query('errorRedirect').toString()
 
         try {
-            const decoded = jwt.verify(token, this.SECRET_KEY) as JwtPayload
+            const decoded = jwt.verify(token, this.SECRET_KEY) as JwtToken
             
-            await this.store.verifyEmail(decoded['user'])
-            res.redirect(302, decoded['url'])
+            await this.store.verifyEmail(decoded.user)
+            res.redirect(302, decoded.url)
         } catch (error) {
             res.redirect(302, errorRedirect)
             Log.error(`${error}`)
@@ -217,8 +218,8 @@ export class AccountService implements Service {
         if (!token) return res.Unauthorized()
 
         try {
-            const decoded = jwt.verify(token, this.SECRET_KEY) as JwtPayload
-            const { token: newToken, refreshToken } = this.generateToken(decoded['user'])
+            const { user } = jwt.verify(token, this.SECRET_KEY) as JwtToken
+            const { token: newToken, refreshToken } = this.generateToken(user)
 
             res.cookie('refreshToken', refreshToken, {
                     httpOnly: true,
@@ -359,7 +360,7 @@ export class AccountService implements Service {
         const errorUrl = req.Query('errorUrl').toString()
         
         try {
-            const { user, email, redirect } = jwt.verify(token, this.SECRET_KEY) as jwt.JwtPayload
+            const { user, email, redirect } = jwt.verify(token, this.SECRET_KEY) as JwtToken
             
             await this.store.updateProfile(user, { email })
             res.redirect(302, redirect)

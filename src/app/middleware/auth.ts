@@ -12,6 +12,10 @@ declare global {
     }
 }
 
+export interface JwtToken extends jwt.JwtPayload {
+    user: string
+}
+
 export async function auth(req: Request, res: Response, next: NextFunction) {
     try {
         const authHeader = req.headers.authorization
@@ -20,7 +24,7 @@ export async function auth(req: Request, res: Response, next: NextFunction) {
         
         const token = authHeader.replace('Bearer ', '')
         const key = env.get('JWT_SIGNING_KEY').toString('secret')
-        const { user } = jwt.verify(token, key) as jwt.JwtPayload
+        const { user } = jwt.verify(token, key) as JwtToken
         
         const store = new AccountStore()
         const u = await store.get(user)

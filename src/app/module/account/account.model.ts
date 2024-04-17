@@ -5,6 +5,11 @@ import { Users } from "kysely-codegen"
 
 export type User = Selectable<Users>
 
+export interface AuthToken {
+    token: string
+    refreshToken: string
+}
+
 const registerSchema = Type.Object({
     email: Type.String({ format: 'email' }),
     password: Type.String({ format: 'password' }),
