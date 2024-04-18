@@ -1,14 +1,13 @@
 import { Example } from "./schemas/example.schema";
-import { Template } from "./schemas/template.schema";
 
 export interface Store {
-    foo(): Promise<Example>
+    foo(): Promise<any>
 }
 
 export class ExampleStore implements Store {
 
     // WARNING: this is only example (not tested)
-    async foo(): Promise<Example> {
+    async foo(): Promise<any> {
         const foo = await Example.aggregate([
             ...Example.template()
         ])
