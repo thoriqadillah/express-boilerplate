@@ -1,6 +1,7 @@
 import { Express } from "express";
-import { App, AppOption, Plugin } from "@/app";
+import { App, AppOption } from "@/app";
 import { Server } from 'socket.io'
+import { Plugin, PluginCloser } from ".";
 
 
 declare global {
@@ -11,9 +12,22 @@ declare global {
     }
 }
 
-export class RTC implements Plugin<Express> {
-    install(instance: App<Express>, _: AppOption): void {
-        const io = new Server(instance.server)
-        instance.app.rtc = io
+class RtcPlugin implements Plugin, PluginCloser {
+
+    private io?: Server
+    constructor(
+        private instance: App<Express>, 
+        private _?: AppOption<Express>
+    ) {}
+
+    install(): void {
+        this.io = new Server(this.instance.server)
+        this.instance.app.rtc = this.io
+    }
+
+    close(): void {
+        this.io!.close()
     }
 }
+
+export default (app: App<Express>, option?: AppOption<Express>) => new RtcPlugin(app, option)
