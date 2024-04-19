@@ -44,10 +44,9 @@ export interface App<T> {
 
 export interface AppOption {
     name?: string
-    useDb?: boolean
-    useMemstore?: boolean
     services?: ExpressService[],
     port?: number
+    stores?: Connection[]
 }
 
 export class Application implements App<Express> {
@@ -57,8 +56,6 @@ export class Application implements App<Express> {
 
     private BASE_URL = env.get('BASE_URL').toString('http://localhost:3000')
     private option: AppOption
-    private db: Connection = new KyselyDatabase()
-    private memstore: Connection = new Redis()
     private environment = env.get('NODE_ENV').toString('dev')
 
     private plugins: Plugin<Express>[] = []
@@ -67,9 +64,8 @@ export class Application implements App<Express> {
         this.option = {
             services,
             name: 'index',
-            useDb: true,
-            useMemstore: true,
             port: 3000,
+            stores: [],
             ...option
         }
 
@@ -125,8 +121,7 @@ export class Application implements App<Express> {
     }
 
     start() {
-        if (this.option.useDb) this.db.open()
-        if (this.option.useMemstore) this.memstore.open()
+        this.option.stores!.forEach(store => store.open())
         this.installPlugin()
 
         for (const service of this.option.services!) {
@@ -158,8 +153,7 @@ export class Application implements App<Express> {
         Log.info('HTTP server closed...')
         if (this.server) this.server.close()
 
-        if (this.option.useDb) this.db.close()
-        if (this.option.useMemstore) this.memstore.close()
+        this.option.stores!.forEach(store => store.close())
     }
 
     shutdown() {
