@@ -12,13 +12,13 @@ dotenv.config({ path: flags.env });
 const app = express();
 const vw = new Application(app, { 
     port: flags.port ? Number(flags.port) : env.get('PORT').toNumber(3000),
+    plugins: [new RTC()],
     stores: [
         new KyselyDatabase(),
         new Redis()
-    ]
-})
+    ],
 
-vw.use(new RTC())
+})
 
 vw.start()
 vw.shutdown()

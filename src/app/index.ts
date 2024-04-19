@@ -30,7 +30,7 @@ export interface ServiceCloser {
 }
 
 export interface Plugin<T> {
-    install(app: App<T>, option: AppOption): void
+    install(app: App<T>, option: AppOption<T>): void
 }
 
 export interface App<T> {
@@ -42,11 +42,12 @@ export interface App<T> {
     shutdown(): void
 }
 
-export interface AppOption {
+export interface AppOption<T> {
     name?: string
     services?: ExpressService[],
     port?: number
-    stores?: Connection[]
+    stores?: Connection[],
+    plugins?: Plugin<T>[],
 }
 
 export class Application implements App<Express> {
@@ -55,17 +56,16 @@ export class Application implements App<Express> {
     services: Service[] = []
 
     private BASE_URL = env.get('BASE_URL').toString('http://localhost:3000')
-    private option: AppOption
+    private option: AppOption<Express>
     private environment = env.get('NODE_ENV').toString('dev')
 
-    private plugins: Plugin<Express>[] = []
-
-    constructor(public app: Express, option?: AppOption) {
+    constructor(public app: Express, option?: AppOption<Express>) {
         this.option = {
             services,
             name: 'index',
             port: 3000,
             stores: [],
+            plugins: [],
             ...option
         }
 
@@ -105,24 +105,13 @@ export class Application implements App<Express> {
         return baseUrl
     }
 
-    use(plugin: Plugin<Express>): App<Express> {
-        this.plugins.push(plugin)
-        return this
-    }
-
-    private installPlugin() {
-        for (const plugin of this.plugins) {
-            plugin.install(this, this.option)
-        }
-    }
-
     private canInit(service: any): service is ServiceInitter {
         return 'init' in service
     }
 
     start() {
         this.option.stores!.forEach(store => store.open())
-        this.installPlugin()
+        this.option.plugins!.forEach(plugin => plugin.install(this, this.option))
 
         for (const service of this.option.services!) {
             const svc = service(this.app)
