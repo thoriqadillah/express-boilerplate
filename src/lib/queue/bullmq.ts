@@ -1,17 +1,16 @@
-import { JobOption, MessageQueueCloser, MessageQueueInitter, MessageQueueOption, WorkFn } from ".";
+import { JobOption, MessageQueue, MessageQueueOption, WorkFn } from ".";
 import { Queue, Job, Worker } from 'bullmq'
 import { env } from "../env";
-import { MessageQueue } from "./mq";
 import { Log } from "../logger";
+import { Closable, Initable } from "../graceful";
 
-export class BullMQ extends MessageQueue implements MessageQueueInitter, MessageQueueCloser {
+export class BullMQ implements MessageQueue, Initable, Closable {
 
   private queue: Queue
   private worker?: Worker
+  private option: MessageQueueOption
 
-  constructor(name: string, option?: MessageQueueOption) {
-    super(name, option)
-
+  constructor(private name: string, option?: MessageQueueOption) {
     this.option = {
       concurrency: env.get('QUEUE_CONCURRENCY').toNumber(),
       redis: {

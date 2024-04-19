@@ -1,4 +1,4 @@
-import { Service, ServiceCloser, ServiceInitter } from "@/app";
+import { Service } from "@/app";
 import express, { Express, Request, Response } from "express";
 import { Payload, broker } from "@/lib/broker";
 import { NotifierName, notifier, SendEmail } from "@/lib/notifier";
@@ -8,8 +8,9 @@ import axios from "axios";
 import { env } from "@/lib/env";
 import { Log } from "@/lib/logger";
 import { MessageQueueName, queue } from "@/lib/queue";
+import { Closable, Initable, closable, initable } from "@/lib/graceful";
 
-export class NotifierService implements Service, ServiceInitter, ServiceCloser {
+export class NotifierService implements Service, Initable, Closable {
 
     private NOTIFIER_DRIVER = env.get('NOTIFIER_DRIVER').toUnion<NotifierName>('ses')
     private QUEUE_DRIVER = env.get('QUEUE_DRIVER').toUnion<MessageQueueName>('bull')
@@ -25,7 +26,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
         this.event.subscribe('notification', this.enqueue)
 
         this.queue.work(this.notify)
-        if (this.queue.initable()) this.queue.init()
+        if (initable(this.queue)) this.queue.init()
     }
 
     enqueue = (payload?: Payload) => {
@@ -35,7 +36,7 @@ export class NotifierService implements Service, ServiceInitter, ServiceCloser {
     }
 
     close(): void {
-        if (this.queue.closable()) this.queue.close()
+        if (closable(this.queue)) this.queue.close()
     }
 
     // for testing (dev only)

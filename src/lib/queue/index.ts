@@ -1,5 +1,4 @@
 import { BullMQ } from "./bullmq";
-import { MessageQueue } from "./mq";
 
 export type WorkFn<T = any> = (payload: T) => void
 
@@ -24,14 +23,6 @@ export interface JobOption {
   
 }
 
-export interface MessageQueueInitter {
-    init(): Promise<void>
-}
-
-export interface MessageQueueCloser {
-    close(): Promise<void>
-}
-
 export interface MessageQueueOption {
   concurrency?: number
   redis?: {
@@ -40,6 +31,11 @@ export interface MessageQueueOption {
     password: string
     port: number
   }
+}
+
+export interface MessageQueue {
+    push<T = any>(data: T, option?: JobOption): void;
+    work<T = any>(callback: WorkFn<T>): void;
 }
 
 export type QueueFactory = (name: string, option?: MessageQueueOption) => MessageQueue

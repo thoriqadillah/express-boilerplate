@@ -1,3 +1,5 @@
+import { Closable } from "@/lib/graceful"
+
 export interface ConnectionOption {
     driver?: string
     database?: string
@@ -7,9 +9,8 @@ export interface ConnectionOption {
     port?: number
 }
 
-export interface Connection {
+export interface Connection extends Closable {
     open(): void
-    close(): void
 }
 
 export { KyselyDatabase } from "./kysely"

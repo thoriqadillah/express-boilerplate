@@ -1,7 +1,8 @@
 import { Express } from "express";
 import { App, AppOption } from "@/app";
 import { Server } from 'socket.io'
-import { Plugin, PluginCloser } from ".";
+import { Plugin } from ".";
+import { Closable } from "@/lib/graceful";
 
 
 declare global {
@@ -12,7 +13,7 @@ declare global {
     }
 }
 
-class RtcPlugin implements Plugin, PluginCloser {
+class RtcPlugin implements Plugin, Closable {
 
     private io?: Server
     constructor(

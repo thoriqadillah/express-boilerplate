@@ -16,18 +16,11 @@ import { Log } from '@/lib/logger';
 import ms from 'ms';
 import moment from 'moment';
 import color from 'colors'
-import { Pluggable, Plugin, PluginCloser } from '@/plugin';
+import { Pluggable, Plugin } from '@/plugin';
+import { closable, initable } from '@/lib/graceful';
 
 export interface Service {
     createRoutes(): void
-}
-
-export interface ServiceInitter {
-    init(): void
-}
-
-export interface ServiceCloser {
-    close(): void
 }
 
 export interface App<T> {
@@ -103,10 +96,6 @@ export class Application implements App<Express> {
         return baseUrl
     }
 
-    private canInit<T>(service: any): service is T {
-        return 'init' in service
-    }
-
     private installPlugin() {
         for (const install of this.option.plugins!) {
             const plugin = install(this, this.option)
@@ -122,7 +111,7 @@ export class Application implements App<Express> {
         for (const service of this.option.services!) {
             const svc = service(this.app)
 
-            if (this.canInit<ServiceInitter>(svc)) svc.init()
+            if (initable(svc)) svc.init()
             svc.createRoutes()
 
             this.services.push(svc)
@@ -136,13 +125,9 @@ export class Application implements App<Express> {
             })
     }
 
-    private canClose<T>(service: any): service is T {
-        return 'close' in service
-    }
-
     private destroyPlugin() {
         for (const plugin of this.plugins) {
-            if (this.canClose<PluginCloser>(plugin)) plugin.close()
+            if (closable(plugin)) plugin.close()
         }
     }
 
@@ -150,7 +135,7 @@ export class Application implements App<Express> {
         this.destroyPlugin()
         
         for (const service of this.services) {    
-            if (this.canClose<ServiceCloser>(service)) service.close()
+            if (closable(service)) service.close()
         }
 
         Log.info('HTTP server closed...')
