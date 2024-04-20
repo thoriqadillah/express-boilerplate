@@ -20,6 +20,7 @@
     "build": "rimraf dist && tsc -p tsconfig.build.json && resolve-tspaths",
     "test": "jest --verbose --detectOpenHandles --forceExit",
     "start": "node dist/index.js",
+    "cli": "node dist/cli.js",
     "dev:swc": "swc ./src -d dist --strip-leading-paths -w",
     "dev:chokidar": "chokidar \"dist/**/*.js\" --command \"kill-port --port 3000 && clear && node dist/index.js\" --silent",
     "dev": "rimraf dist && swc ./src -d dist --strip-leading-paths && run-p dev:*"
@@ -38,6 +39,7 @@
     "body-parser": "^1.20.2",
     "bullmq": "^5.7.1",
     "colors": "^1.4.0",
+    "commander": "^12.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

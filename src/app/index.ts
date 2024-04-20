@@ -7,7 +7,7 @@ import { rateLimit } from 'express-rate-limit'
 
 import { env } from "@/lib/env";
 import { Express } from "express";
-import { Connection } from "@/db";
+import { Connection } from "@/db/connection";
 import { ExpressService } from "@/app/module";
 import { Server } from "http";
 import helmet from 'helmet'
@@ -16,8 +16,11 @@ import { Log } from '@/lib/logger';
 import ms from 'ms';
 import moment from 'moment';
 import color from 'colors'
-import { Pluggable, Plugin } from '@/plugin';
+import { Plugin } from '@/plugin';
 import { closable, initable } from '@/lib/graceful';
+import { Commander } from './cmd';
+import { Command } from 'commander';
+import dotenv from 'dotenv'
 
 export interface Service {
     createRoutes(): void
@@ -37,7 +40,7 @@ export interface AppOption<T> {
     services?: ExpressService[],
     port?: number
     stores?: Connection[],
-    plugins?: Pluggable<T>[],
+    plugins?: Plugin<T>[],
 }
 
 export class Application implements App<Express> {
@@ -48,7 +51,7 @@ export class Application implements App<Express> {
     private BASE_URL = env.get('BASE_URL').toString('http://localhost:3000')
     private option: AppOption<Express>
     private environment = env.get('NODE_ENV').toString('dev')
-    private plugins: Plugin[] = []
+    private plugins: Plugin<Express>[] = []
 
     constructor(public app: Express, option?: AppOption<Express>) {
         this.option = {
@@ -97,9 +100,8 @@ export class Application implements App<Express> {
     }
 
     private installPlugin() {
-        for (const install of this.option.plugins!) {
-            const plugin = install(this, this.option)
-
+        for (const plugin of this.option.plugins!) {
+            plugin.install(this, this.option)
             this.plugins.push(plugin)
         }
     }

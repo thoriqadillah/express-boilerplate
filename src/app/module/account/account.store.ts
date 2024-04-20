@@ -1,5 +1,5 @@
 import { Login, Register, UpdateProfile } from "./account.model";
-import { KyselyDatabase, Redis } from "@/db";
+import { KyselyDatabase, Redis } from "@/db/connection";
 import uuid from 'uuid';
 import { User } from "./account.model";
 import bcrypt from 'bcrypt'

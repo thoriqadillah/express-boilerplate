@@ -1,4 +1,4 @@
-import { KyselyDatabase } from "@/db"
+import { KyselyDatabase } from "@/db/connection"
 import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 

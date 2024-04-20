@@ -1,4 +1,4 @@
-import { Collection, MongoDatabase } from "@/db/mongoose";
+import { Collection, MongoDatabase } from "@/db/connection/mongoose";
 import { PipelineStage, Schema } from "mongoose";
 import { Template } from "./template.schema";
 

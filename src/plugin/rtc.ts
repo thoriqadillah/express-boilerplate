@@ -13,22 +13,16 @@ declare global {
     }
 }
 
-class RtcPlugin implements Plugin, Closable {
+export class RTC implements Plugin<Express>, Closable {
 
     private io?: Server
-    constructor(
-        private instance: App<Express>, 
-        private _?: AppOption<Express>
-    ) {}
 
-    install(): void {
-        this.io = new Server(this.instance.server)
-        this.instance.app.rtc = this.io
+    install(instance: App<Express>, _?: AppOption<Express>): void {
+        this.io = new Server(instance.server)
+        instance.app.rtc = this.io
     }
 
     close(): void {
         this.io!.close()
     }
 }
-
-export default (app: App<Express>, option?: AppOption<Express>) => new RtcPlugin(app, option)
