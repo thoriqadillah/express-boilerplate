@@ -7,24 +7,22 @@ export interface Seeder {
     down(): void
 }
 
-export class DatabaseSeeder implements Commander {
-
-    private seeders: Seeder[] = [
+export default function seed(cmd: Command): Command {
+    const seeders: Seeder[] = [
 
     ]
 
-    run(cmd: Command): Command {
-        return cmd.command('seed')
-            .description('Run database seeder')
-            .option('--env <path>', 'env path', './.env')
-            .option('--refresh', 'refresh the seeder')
-            .action((option) => {
-                dotenv.config({ path: option.env })
+    return cmd.command('seed')
+        .description('Run database seeder')
+        .option('--env <path>', 'env path', './.env')
+        .option('--refresh', 'refresh the seeder')
+        .action((option) => {
+            dotenv.config({ path: option.env })
 
-                for (const seeder of this.seeders) {
-                    if (option.refresh) seeder.down()
-                    seeder.up()
-                }
-            })
-    }
+            for (const seeder of seeders) {
+                if (option.refresh) seeder.down()
+                seeder.up()
+            }
+        })
+
 }
