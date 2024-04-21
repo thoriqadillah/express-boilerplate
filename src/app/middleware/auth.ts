@@ -1,8 +1,7 @@
-import { env } from "@/lib/env";
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { AccountStore } from "../module/account/account.store";
 import { User } from "../module/account/account.model";
+import { FastJwt, JwtToken } from "@/lib/jwt";
 
 declare global {
     namespace Express {
@@ -12,19 +11,14 @@ declare global {
     }
 }
 
-export interface JwtToken extends jwt.JwtPayload {
-    user: string
-}
 
 export async function auth(req: Request, res: Response, next: NextFunction) {
     try {
         const authHeader = req.headers.authorization
-        
         if (!authHeader) return res.Unauthorized()
         
         const token = authHeader.replace('Bearer ', '')
-        const key = env.get('JWT_SIGNING_KEY').toString('secret')
-        const { user } = jwt.verify(token, key) as JwtToken
+        const { user } = FastJwt.verify<JwtToken>(token)
         
         const store = new AccountStore()
         const u = await store.get(user)

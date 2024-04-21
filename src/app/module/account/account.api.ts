@@ -3,7 +3,6 @@ import { Service } from "@/app";
 import { auth, validate } from "@/app/middleware";
 import { AccountStore } from "./account.store";
 import Validator, { type Login, type UpdateProfile, type ChangePassword, type Register, type NewPassword, type ChangeEmail, AuthToken } from "./account.model";
-import jwt from 'jsonwebtoken'
 import { env } from "@/lib/env";
 import { BrokerName, Priority, broker } from "@/lib/broker";
 import { ResetPasswordStore } from "./reset-password/reset-password.store";
@@ -18,13 +17,13 @@ import { imageupload } from "@/app/middleware/file-upload";
 import path from "path";
 import { Log } from "@/lib/logger";
 import fs from "fs";
-import { JwtToken } from "@/app/middleware/auth";
+import { JwtToken, FastJwt } from "@/lib/jwt";
+import ms from "ms";
+import { Initable } from "@/lib/graceful";
 
-export class AccountService implements Service {
+export class AccountService implements Service, Initable {
 
-    private SECRET_KEY = env.get('JWT_SIGNING_KEY').toString('secret')
-    private TOKEN_EXP = env.get('JWT_EXPIRATION').toDuration('1h')
-    private REFRESH_TOKEN_EXP = env.get('JWT_REFRESH_TOKEN_EXPIRATION').toDuration('1d')
+    private REFRESH_TOKEN_EXP = env.get('JWT_REFRESH_TOKEN_EXPIRATION')
     private BROKER_DRIVER = env.get('BROKER_DRIVER').toUnion<BrokerName>('event')
     private STORAGE_DRIVER = env.get('STORAGE_DRIVER').toUnion<StorageName>('s3')
     private OAUTH_GOOGLE_ID = env.get('OAUTH_GOOGLE_ID').toString()
@@ -45,14 +44,18 @@ export class AccountService implements Service {
 
     constructor(private app: Express) {}
 
-    generateToken(userId: string): AuthToken {
-        const token = jwt.sign({ user: userId }, this.SECRET_KEY, {
-            expiresIn: this.TOKEN_EXP.getTime(),
-        })
+    init(): void {
+        FastJwt.create('email', { maxAge: ms('1h') })
+        FastJwt.create('refresh-token', { maxAge: this.REFRESH_TOKEN_EXP.toDuration('1d') })
+    }
 
-        const refreshToken = jwt.sign({ user: userId }, this.SECRET_KEY, {
-            expiresIn: this.REFRESH_TOKEN_EXP.getTime()
-        })
+    generateToken(userId: string): AuthToken {
+        const payload = {
+            user: userId
+        }
+
+        const token = FastJwt.sign(payload)
+        const refreshToken = FastJwt.use('refresh-token').sign(payload)
 
         return {
             token,
@@ -72,7 +75,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.REFRESH_TOKEN_EXP
+                    expires: this.REFRESH_TOKEN_EXP.toDate()
                 })
                 .Created({ token })
             
@@ -93,7 +96,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.REFRESH_TOKEN_EXP
+                    expires: this.REFRESH_TOKEN_EXP.toDate()
                 })
                 .Ok({ token })
 
@@ -144,7 +147,7 @@ export class AccountService implements Service {
                         httpOnly: true,
                         sameSite: req.secure ? 'none' : 'lax',
                         secure: req.secure,
-                        expires: this.REFRESH_TOKEN_EXP
+                        expires: this.REFRESH_TOKEN_EXP.toDate()
                     })
                     .Ok({ token })
             }
@@ -155,7 +158,7 @@ export class AccountService implements Service {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.REFRESH_TOKEN_EXP
+                    expires: this.REFRESH_TOKEN_EXP.toDate()
                 })
                 .Ok({ token: accessToken })
             
@@ -174,7 +177,7 @@ export class AccountService implements Service {
                 url: redirect,
             }
 
-            const token = jwt.sign(param, this.SECRET_KEY, { expiresIn: '1h' })
+            const token = FastJwt.use('email').sign(param)
             const callbackUrl = `${this.BASE_URL}/api/v1/auth/verify/callback?token=${token}&errorRedirect=${errorRedirect}`
     
             this.broker.publish<SendEmail>('notification', { 
@@ -199,8 +202,7 @@ export class AccountService implements Service {
         const errorRedirect = req.Query('errorRedirect').toString()
 
         try {
-            const decoded = jwt.verify(token, this.SECRET_KEY) as JwtToken
-            
+            const decoded = FastJwt.use('email').verify<JwtToken>(token)
             await this.store.verifyEmail(decoded.user)
             res.redirect(302, decoded.url)
         } catch (error) {
@@ -218,14 +220,14 @@ export class AccountService implements Service {
         if (!token) return res.Unauthorized()
 
         try {
-            const { user } = jwt.verify(token, this.SECRET_KEY) as JwtToken
+            const { user } = FastJwt.use('refresh-token').verify<JwtToken>(token)
             const { token: newToken, refreshToken } = this.generateToken(user)
 
             res.cookie('refreshToken', refreshToken, {
                     httpOnly: true,
                     sameSite: req.secure ? 'none' : 'lax',
                     secure: req.secure,
-                    expires: this.REFRESH_TOKEN_EXP
+                    expires: this.REFRESH_TOKEN_EXP.toDate()
                 })
                 .Ok({ token: newToken })
 
@@ -335,7 +337,7 @@ export class AccountService implements Service {
                 redirect: payload.redirect,
             }
     
-            const token = jwt.sign(data, this.SECRET_KEY, { expiresIn: '1h' })
+            const token = FastJwt.use('email').sign(data)
             const callbackUrl = `${this.BASE_URL}/api/v1/user/change-email/callback?token=${token}&errorUrl=${payload.errorRedirect}`
     
             this.broker.publish<SendEmail>('notification', {
@@ -360,7 +362,7 @@ export class AccountService implements Service {
         const errorUrl = req.Query('errorUrl').toString()
         
         try {
-            const { user, email, redirect } = jwt.verify(token, this.SECRET_KEY) as JwtToken
+            const { user, email, redirect } = FastJwt.use('email').verify<JwtToken>(token)
             
             await this.store.updateProfile(user, { email })
             res.redirect(302, redirect)
