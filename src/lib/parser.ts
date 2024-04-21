@@ -20,7 +20,8 @@ export interface Parser {
     toString(defaults?: string): string
     toBoolean(defaults?: boolean): boolean
     toNumber(defaults?: number): number
-    toDuration(defaults?: string): Date
+    toDuration(defaults?: string): number
+    toDate(defaults?: string): Date
     toUnion<T = ''>(defaults?: T): T
 }
 
@@ -46,7 +47,7 @@ export function parse(value?: string): Parser {
         return 0
     }
 
-    function toDuration(defaults?: string): Date {
+    function toDate(defaults?: string): Date {
         const toDate = (milisecond: string) => {
           return moment().add(ms(milisecond)).toDate()
         };
@@ -55,6 +56,13 @@ export function parse(value?: string): Parser {
         if (!value && defaults) return toDate(defaults);
     
         return new Date();
+    }
+
+    function toDuration(defaults?: string): number {
+        if (value) return ms(value);
+        if (!value && defaults) return ms(defaults);
+    
+        return 0
     }
 
     function toUnion<T = ''>(defaults?: T): T {
@@ -69,6 +77,7 @@ export function parse(value?: string): Parser {
         toBoolean,
         toNumber,
         toDuration,
-        toUnion
+        toUnion,
+        toDate
     }
 }
