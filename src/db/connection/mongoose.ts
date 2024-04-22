@@ -1,8 +1,9 @@
 import { env } from "@/lib/env";
 import { Connection, ConnectionOption } from ".";
-import mongoose, { Model, Schema } from "mongoose";
+import mongoose, { Model } from "mongoose";
 import { Log } from "@/lib/logger";
 import { PipelineStage } from "mongoose";
+import { Document as MongooseDocument, Types } from "mongoose";
 
 export class MongoDatabase implements Connection {
 
@@ -40,11 +41,19 @@ export class MongoDatabase implements Connection {
     }
 }
 
+/**
+ * Create a type for mongodb document based on model
+ */
+export type Document<M> = (MongooseDocument<unknown, {}, M> & M & { _id: Types.ObjectId })
+
+
 export interface RelationOption {
     local?: string
     foreign?: string
     selects?: string[]
 }
+
+type Pipeline = Exclude<PipelineStage, PipelineStage.Merge | PipelineStage.Out>
 
 export class Collection {
 
@@ -59,7 +68,7 @@ export class Collection {
         return projection
     }
 
-    static hasMany(model: typeof Model, option?: RelationOption): PipelineStage[] {
+    static hasMany(model: typeof Model, option?: RelationOption): Pipeline[] {
         return [
             { 
                 $lookup: {
@@ -75,7 +84,24 @@ export class Collection {
         ]
     }
 
-    static hasOne(model: typeof Model, option?: RelationOption): PipelineStage[] {
+    static hasManyWith(model: typeof Model, pipeline: () => Pipeline[], option?: RelationOption): Pipeline[] {
+        return [
+            { 
+                $lookup: {
+                    from: model.collection.name,
+                    foreignField: option?.foreign ?? '_id',
+                    localField: option?.local ?? model.modelName.toLowerCase() + 'Id',
+                    as: model.collection.name,
+                    pipeline: [
+                        { $project: Collection.createProjection(option?.selects) },
+                        ...pipeline(),
+                    ]
+                }
+            }
+        ]
+    }
+
+    static hasOne(model: typeof Model, option?: RelationOption): Pipeline[] {
         return [
             {
                 $lookup: {
@@ -85,6 +111,24 @@ export class Collection {
                     as: model.modelName.toLowerCase(),
                     pipeline: [
                         { $project: Collection.createProjection(option?.selects) }
+                    ]
+                }
+            },
+            { $unwind: { path: `$${model.modelName.toLowerCase()}`, preserveNullAndEmptyArrays: true } }
+        ]
+    }
+
+    static hasOneWith(model: typeof Model, pipeline: () => Pipeline[], option?: RelationOption): Pipeline[] {
+        return [
+            {
+                $lookup: {
+                    from: model.collection.name,
+                    foreignField: option?.foreign ?? '_id',
+                    localField: option?.local ?? model.modelName.toLowerCase() + 'Id',
+                    as: model.modelName.toLowerCase(),
+                    pipeline: [
+                        { $project: Collection.createProjection(option?.selects) },
+                        ...pipeline()
                     ]
                 }
             },
